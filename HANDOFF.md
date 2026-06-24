@@ -36,6 +36,8 @@ npm test                  # 7 tests, should all pass
 npm run build             # production build (validates types + builds)
 ```
 
+**Node.js requirement**: Node 20+ required (Vitest 4 depends on `styleText` from `node:util`, added in Node 20).
+
 ## What to review
 1. **Mobile feel**: Open DevTools mobile view (360×640), search Springfield → Rivertown, pick seats, complete a booking. The station picker and results cards should feel like a real travel product.
 2. **Seat-hold flow**: Book a departure with seat selection, then open a private/incognito window and try to book the same seat — should be blocked. Complete the first booking, then the seat becomes available again in the second window.
@@ -59,7 +61,7 @@ npm run build             # production build (validates types + builds)
 - `tests/booking.test.ts` — 7 focused tests proving the critical paths work.
 
 ## Deployment checklist (when ready)
-1. Swap `datasource db` in `schema.prisma` to `provider = "postgresql"`, set `DATABASE_URL` to Postgres.
+1. Swap `datasource db` in `schema.prisma` to `provider = "postgresql"`, set `DATABASE_URL` to Postgres connection string (via environment variable or secrets manager).
 2. Run `npx prisma migrate dev` against Postgres (creates tables).
 3. Seed production data (real routes, real schedules).
 4. Swap `MockProvider` for real payment gateway in `lib/payment.ts`.
@@ -67,6 +69,11 @@ npm run build             # production build (validates types + builds)
 6. Configure email provider (Resend, SendGrid, etc.) and wire booking confirmations.
 7. Set up monitoring (Sentry, Datadog, etc.) for payment failures and booking errors.
 8. Test seat-hold expiry and concurrency under load (current TTL is 10 minutes, tune if needed).
+
+**CI/CD notes**:
+- The GitHub Actions workflow uses `DATABASE_URL: file:./test.db` for CI runs only (throwaway SQLite file created per run).
+- In production, set `DATABASE_URL` as an environment variable or GitHub secret pointing to your real Postgres instance.
+- Node 20+ is required (Vitest 4 dependency).
 
 ## Questions or issues?
 If something doesn't work or the instructions are unclear, check:
