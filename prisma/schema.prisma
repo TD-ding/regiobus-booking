@@ -1,0 +1,147 @@
+// Prisma schema — SQLite in dev, portable to Postgres in prod.
+// Portability rules: money is integer cents; status fields are String (documented values),
+// not Prisma enums; Json used only as opaque blobs; UTC DateTime. Swap = change provider + URL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Rider {
+  id        String   @id @default(cuid())
+  email     String?  @unique
+  phone     String?  @unique
+  name      String?
+  createdAt DateTime @default(now())
+  orders    Order[]
+}
+
+model City {
+  id       String    @id @default(cuid())
+  name     String
+  region   String?
+  stations Station[]
+
+  @@unique([name, region])
+}
+
+model Station {
+  id     String  @id @default(cuid())
+  name   String
+  code   String  @unique
+  city   City    @relation(fields: [cityId], references: [id])
+  cityId String
+
+  originRoutes      Route[] @relation("origin")
+  destinationRoutes Route[] @relation("destination")
+}
+
+model Route {
+  id              String      @id @default(cuid())
+  origin          Station     @relation("origin", fields: [originId], references: [id])
+  originId        String
+  destination     Station     @relation("destination", fields: [destinationId], references: [id])
+  destinationId   String
+  durationMinutes Int
+  basePriceCents  Int
+  currency        String      @default("USD")
+  departures      Departure[]
+
+  @@unique([originId, destinationId])
+}
+
+model Departure {
+  id            String   @id @default(cuid())
+  route         Route    @relation(fields: [routeId], references: [id])
+  routeId       String
+  departAt      DateTime
+  arriveAt      DateTime
+  priceCents    Int
+  currency      String   @default("USD")
+  status        String   @default("SCHEDULED") // SCHEDULED | CANCELLED | DEPARTED
+
+  // "seats OR ticket count" switch
+  seatSelection Boolean  @default(true)
+  totalSeats    Int
+  layout        Json?
+
+  seats     Seat[]
+  seatHolds SeatHold[]
+  orders    Order[]
+
+  @@index([routeId, departAt])
+}
+
+model Seat {
+  id          String    @id @default(cuid())
+  departure   Departure @relation(fields: [departureId], references: [id])
+  departureId String
+  label       String
+  rowIndex    Int
+  colIndex    Int
+  seatClass   String     @default("STANDARD")
+  orderItem   OrderItem?
+
+  @@unique([departureId, label])
+}
+
+model SeatHold {
+  id          String    @id @default(cuid())
+  departure   Departure @relation(fields: [departureId], references: [id])
+  departureId String
+  seatLabel   String?
+  holdKey     String
+  quantity    Int       @default(1)
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+
+  @@index([departureId, expiresAt])
+  @@index([holdKey])
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  reference    String      @unique
+  rider        Rider       @relation(fields: [riderId], references: [id])
+  riderId      String
+  departure    Departure   @relation(fields: [departureId], references: [id])
+  departureId  String
+  status       String      @default("PENDING") // PENDING | PAID | CANCELLED | EXPIRED
+  totalCents   Int
+  currency     String      @default("USD")
+  contactEmail String?
+  contactPhone String?
+  createdAt    DateTime    @default(now())
+  items        OrderItem[]
+  payment      Payment?
+
+  @@index([riderId, createdAt])
+}
+
+model OrderItem {
+  id            String  @id @default(cuid())
+  order         Order   @relation(fields: [orderId], references: [id])
+  orderId       String
+  passengerName String
+  passengerDoc  String?
+  priceCents    Int
+  seat          Seat?   @relation(fields: [seatId], references: [id])
+  seatId        String? @unique
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  order       Order    @relation(fields: [orderId], references: [id])
+  orderId     String   @unique
+  provider    String   @default("mock")
+  status      String   @default("REQUIRES_PAYMENT") // REQUIRES_PAYMENT | AUTHORIZED | CAPTURED | FAILED | REFUNDED
+  amountCents Int
+  currency    String   @default("USD")
+  externalRef String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Prisma migrations
+        run: npx prisma migrate dev --name init
+        env:
+          DATABASE_URL: file:./test.db
+
+      - name: Seed database
+        run: npm run seed
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build production
+        run: npm run build
+        env:
+          NODE_ENV: production
+          NEXT_CPUS: 1
+          UV_THREADPOOL_SIZE: 2
