@@ -29,9 +29,13 @@ jobs:
 
       - name: Seed database
         run: npm run seed
+        env:
+          DATABASE_URL: file:./test.db
 
       - name: Run tests
         run: npm test
+        env:
+          DATABASE_URL: file:./test.db
 
       - name: Build production
         run: npm run build
@@ -39,3 +43,4 @@ jobs:
           NODE_ENV: production
           NEXT_CPUS: 1
           UV_THREADPOOL_SIZE: 2
+          DATABASE_URL: file:./test.db
